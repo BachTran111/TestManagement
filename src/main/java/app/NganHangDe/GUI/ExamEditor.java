@@ -1,68 +1,206 @@
 package app.NganHangDe.GUI;
 
+
+import app.NganHangDe.DAO.DeThiDAO;
+import app.NganHangDe.DAO.DeThiChiTietDAO;
+import app.NganHangDe.Model.DeThi;
+import app.NganHangDe.Model.DeThiChiTiet;
+
 import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.*;
+import java.util.List;
 
-public class ExamEditor extends JDialog {
-    private JTextField nameField;
-    private JTextArea descArea;
-    private JTable questionTable;
+public class ExamEditor extends JFrame {
+    private JTextField nameField, descriptionField, dateField;
+    private JTextField questionIdField, questionNumberField;
+    private JTable examTable;
+    private DefaultTableModel tableModel;
 
-    public ExamEditor(Integer examId) {
-        setTitle(examId == null ? "Tạo đề mới" : "Chỉnh sửa đề thi");
-        setSize(800, 600);
-        initComponents(examId);
+    private DeThiDAO deThiDAO = new DeThiDAO();
+    private DeThiChiTietDAO chiTietDAO = new DeThiChiTietDAO();
+
+    public ExamEditor() {
+        setTitle("Quản lý Đề Thi");
+        setSize(1000, 615);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+        initComponents();
+        loadExamList();
     }
 
-    private void initComponents(Integer examId) {
-        JPanel mainPanel = new JPanel(new BorderLayout());
+    private void initComponents() {
+        // Form inputs
+        JPanel formPanel = new JPanel(new GridLayout(4, 2, 5, 5));
+        formPanel.setBorder(BorderFactory.createTitledBorder("Thông tin đề thi"));
 
-        // Form fields
-        JPanel formPanel = new JPanel(new GridLayout(3, 2));
         nameField = new JTextField();
-        descArea = new JTextArea(3, 20);
-        JScrollPane descScroll = new JScrollPane(descArea);
-        JSpinner dateSpinner = new JSpinner(new SpinnerDateModel());
+        descriptionField = new JTextField();
+        dateField = new JTextField();
 
         formPanel.add(new JLabel("Tên đề thi:"));
         formPanel.add(nameField);
         formPanel.add(new JLabel("Mô tả:"));
-        formPanel.add(descScroll);
+        formPanel.add(descriptionField);
+        formPanel.add(new JLabel("Ngày tạo (yyyy-MM-dd):"));
+        formPanel.add(dateField);
 
-        // Question table
-        String[] columns = {"STT", "Câu hỏi", "Loại"};
-        Object[][] data = {}; // Lấy từ DAO
-        questionTable = new JTable(data, columns);
-        JScrollPane tableScroll = new JScrollPane(questionTable);
+        // Question Add
+        JPanel questionPanel = new JPanel(new GridLayout(2, 2, 5, 5));
+//        questionPanel.setBorder(BorderFactory.createTitledBorder("Thêm câu hỏi vào đề thi"));
+//
+//        questionIdField = new JTextField();
+//        questionNumberField = new JTextField();
+//        questionPanel.add(new JLabel("ID câu hỏi:"));
+//        questionPanel.add(questionIdField);
+//        questionPanel.add(new JLabel("Số thứ tự:"));
+//        questionPanel.add(questionNumberField);
 
-        // Control buttons
-        JButton addQuestionBtn = new JButton("Thêm câu hỏi");
-        JButton removeQuestionBtn = new JButton("Xóa câu hỏi");
-        JButton saveBtn = new JButton("Lưu đề");
-
+        // Buttons
         JPanel buttonPanel = new JPanel();
-        buttonPanel.add(addQuestionBtn);
-        buttonPanel.add(removeQuestionBtn);
-        buttonPanel.add(saveBtn);
+        JButton newBtn = new JButton("Tạo mới");
+        JButton saveBtn = new JButton("Lưu");
+        JButton updateBtn = new JButton("Cập nhật");
+        JButton deleteBtn = new JButton("Xóa");
+        JButton addQBtn = new JButton("Thêm câu hỏi");
 
-        mainPanel.add(formPanel, BorderLayout.NORTH);
-        mainPanel.add(tableScroll, BorderLayout.CENTER);
-        mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+        buttonPanel.add(newBtn);
+        buttonPanel.add(saveBtn);
+        buttonPanel.add(updateBtn);
+        buttonPanel.add(deleteBtn);
+        buttonPanel.add(addQBtn);
+
+        // Table
+        String[] columns = {"ID", "Tên đề thi", "Mô tả", "Ngày tạo"};
+        tableModel = new DefaultTableModel(columns, 0);
+        examTable = new JTable(tableModel);
+        JScrollPane scrollPane = new JScrollPane(examTable);
+
+        // Layout
+        setLayout(new BorderLayout());
+        JPanel topPanel = new JPanel(new BorderLayout());
+        topPanel.add(formPanel, BorderLayout.CENTER);
+        topPanel.add(questionPanel, BorderLayout.EAST);
+
+        add(topPanel, BorderLayout.NORTH);
+        add(buttonPanel, BorderLayout.CENTER);
+        add(scrollPane, BorderLayout.SOUTH);
 
         // Event handlers
-        addQuestionBtn.addActionListener(e -> showQuestionBrowser());
         saveBtn.addActionListener(e -> saveExam());
+        updateBtn.addActionListener(e -> updateExam());
+        deleteBtn.addActionListener(e -> deleteExam());
+        newBtn.addActionListener(e -> clearForm());
+        addQBtn.addActionListener(e -> {
+            int row = examTable.getSelectedRow();
+            if (row >= 0) {
+                int deThiId = (int) tableModel.getValueAt(row, 0);
+                new QuestionSelectorDialog(this, deThiId).setVisible(true);
+            } else {
+                JOptionPane.showMessageDialog(this, "Chọn đề thi trước khi thêm câu hỏi.");
+            }
+        });
 
-        add(mainPanel);
+
+        examTable.getSelectionModel().addListSelectionListener(e -> {
+            int row = examTable.getSelectedRow();
+            if (row >= 0) {
+                nameField.setText(tableModel.getValueAt(row, 1).toString());
+                descriptionField.setText(tableModel.getValueAt(row, 2).toString());
+                dateField.setText(tableModel.getValueAt(row, 3).toString());
+            }
+        });
     }
 
-    private void showQuestionBrowser() {
-        // Hiển thị dialog chọn câu hỏi từ ngân hàng
-        QuestionBrowser browser = new QuestionBrowser();
-        browser.setVisible(true);
+    private void loadExamList() {
+        try {
+            List<DeThi> exams = deThiDAO.findAll();
+            tableModel.setRowCount(0);
+            for (DeThi d : exams) {
+                tableModel.addRow(new Object[]{
+                        d.getId(), d.getName(), d.getDescription(), d.getDate()
+                });
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải danh sách đề thi: " + ex.getMessage());
+        }
+    }
+
+    private void clearForm() {
+        nameField.setText("");
+        descriptionField.setText("");
+        dateField.setText("");
+        examTable.clearSelection();
     }
 
     private void saveExam() {
-        // Gọi DAO để lưu đề thi
+        try {
+            DeThi deThi = new DeThi();
+            deThi.setName(nameField.getText());
+            deThi.setDescription(descriptionField.getText());
+            deThi.setDate(java.sql.Date.valueOf(dateField.getText()));
+            deThiDAO.create(deThi);
+            loadExamList();
+            clearForm();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi lưu: " + ex.getMessage());
+        }
+    }
+
+    private void updateExam() {
+        int row = examTable.getSelectedRow();
+        if (row >= 0) {
+            try {
+                int id = (int) tableModel.getValueAt(row, 0);
+                DeThi deThi = new DeThi();
+                deThi.setId(id);
+                deThi.setName(nameField.getText());
+                deThi.setDescription(descriptionField.getText());
+                deThi.setDate(java.sql.Date.valueOf(dateField.getText()));
+                deThiDAO.update(deThi);
+                loadExamList();
+                clearForm();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi khi cập nhật: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void deleteExam() {
+        int row = examTable.getSelectedRow();
+        if (row >= 0) {
+            int confirm = JOptionPane.showConfirmDialog(this, "Xóa đề thi này?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try {
+                    int id = (int) tableModel.getValueAt(row, 0);
+                    deThiDAO.delete(id);
+                    loadExamList();
+                    clearForm();
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Lỗi khi xóa: " + ex.getMessage());
+                }
+            }
+        }
+    }
+
+    private void addQuestionToExam() {
+        int row = examTable.getSelectedRow();
+        if (row >= 0) {
+            try {
+                int deThiId = (int) tableModel.getValueAt(row, 0);
+                int cauHoiId = Integer.parseInt(questionIdField.getText());
+                int soThuTu = Integer.parseInt(questionNumberField.getText());
+
+                DeThiChiTiet ct = new DeThiChiTiet();
+                ct.setDeThiId(deThiId);
+                ct.setCauHoiId(cauHoiId);
+                ct.setQuestionNumber(soThuTu);
+
+                chiTietDAO.add(ct);
+                JOptionPane.showMessageDialog(this, "Đã thêm câu hỏi vào đề thi.");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Lỗi khi thêm câu hỏi: " + ex.getMessage());
+            }
+        }
     }
 }

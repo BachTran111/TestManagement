@@ -135,7 +135,7 @@ public class MainFrame extends JFrame {
 //    }
 
     private void showExamEditor(Integer examId) {
-        ExamEditor editor = new ExamEditor(examId);
+        ExamEditor editor = new ExamEditor();
         editor.setVisible(true);
     }
 

@@ -1,10 +1,10 @@
 package app.NganHangDe.Model;
 
-public class DeThiChiTiet {
-    private Integer id;
-    private Integer deThiId;
-    private Integer cauHoiId;
-    private Integer questionNumber;
+    public class DeThiChiTiet {
+        private Integer id;
+        private Integer deThiId;
+        private Integer cauHoiId;
+        private Integer questionNumber;
 
     public Integer getId() {
         return id;
