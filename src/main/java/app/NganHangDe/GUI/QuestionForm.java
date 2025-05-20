@@ -4,12 +4,13 @@ import app.NganHangDe.DAO.CauHoiDAO;
 import app.NganHangDe.DAO.DapAnDAO;
 import app.NganHangDe.Model.CauHoi;
 import app.NganHangDe.Model.DapAn;
-//import app.NganHangDe.Service.AIService;
+import app.NganHangDe.Service.HFService;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +24,7 @@ public class QuestionForm extends JFrame {
     private JButton btnNew, btnSave, btnUpdate, btnDelete, btnSuggest;
     private CauHoiDAO cauHoiDAO;
     private DapAnDAO dapAnDAO;
+    private HFService hfService;
 
     //    private AIService aiService;
     private Integer selectedId = null;
@@ -32,12 +34,14 @@ public class QuestionForm extends JFrame {
     private JRadioButton[] radOptions;
     private JTextField[] txtOptions;
     private ButtonGroup answerGroup;
-    private JTextField txtWritingAnswer;
+//    private JTextField txtWritingAnswer;
 
     public QuestionForm() {
         super("Quản lý Câu Hỏi");
         cauHoiDAO = new CauHoiDAO();
-        //        aiService = new AIService();  // xử lý IOException bên trong
+        hfService = new HFService();
+
+
         initComponents();
         loadData();
     }
@@ -61,7 +65,7 @@ public class QuestionForm extends JFrame {
 
         // Form inputs
         txtContent = new JTextArea(3, 40);
-        cmbType = new JComboBox<>(new String[]{"Multiple Choice", "Listening", "Reading", "Writing"});
+        cmbType = new JComboBox<>(new String[]{"Vocabulary", "Listening", "Reading", "Writing"});
         txtAmThanhId = new JTextField(5);
 
         btnNew = new JButton("Tạo mới");
@@ -106,7 +110,46 @@ public class QuestionForm extends JFrame {
         btnSave.addActionListener(e -> saveQuestion());
         btnUpdate.addActionListener(e -> updateQuestion());
         btnDelete.addActionListener(e -> deleteQuestion());
-        //        btnSuggest.addActionListener(e -> suggestAI());
+        btnSuggest.addActionListener(e -> {
+            String prompt = txtContent.getText().trim();
+            if (prompt.isEmpty()) return;
+            try {
+                String prompts = """
+Hãy tạo một câu hỏi trắc nghiệm với 4 đáp án (A–D), chỉ nội dung, không giải thích, định dạng như sau:
+
+A. ...
+B. ...
+C. ...
+D. ...
+
+Trong đó, đáp án đúng được đánh dấu bằng dấu * ở đầu dòng (ví dụ: *C. ...)
+
+Câu hỏi: """ + prompt;
+                String suggestion = hfService.getAnswerSuggestion(prompts);
+                String[] lines = suggestion.split("\\n");
+
+                for (int i = 0, filled = 0; i < lines.length && filled < 4; i++) {
+                    String line = lines[i].trim();
+
+                    // Chỉ xử lý dòng có định dạng A. hoặc *A.
+                    if (line.matches("^\\*?[A-D]\\.\\s.*")) {
+                        // Bỏ dấu * nếu có, và hiển thị nội dung
+                        String cleanLine = line.replaceFirst("^\\*", "").trim();
+                        txtOptions[filled].setText(cleanLine);
+
+                        // Nếu có dấu *, tick radio button tương ứng
+                        if (line.startsWith("*")) {
+                            radOptions[filled].setSelected(true);
+                        }
+
+                        filled++;
+                    }
+                }
+
+            } catch (IOException ex) {
+                showError(ex);
+            }
+        });
     }
 
     private void updateAnswerPanel() {
@@ -121,7 +164,6 @@ public class QuestionForm extends JFrame {
         try {
 //            List<DapAn> answers = dapAnDAO.findByCauHoiId(selectedId);
             List<DapAn> answers = (selectedId != null) ? dapAnDAO.findByCauHoiId(selectedId) : new ArrayList<>();
-            if (cmbType.getSelectedItem().equals("Multiple Choice")) {
                 radOptions = new JRadioButton[4];
                 txtOptions = new JTextField[4];
                 answerGroup = new ButtonGroup();
@@ -144,18 +186,18 @@ public class QuestionForm extends JFrame {
                     pnlAnswers.add(row);
                 }
 
-            } else { //1
-                txtWritingAnswer = new JTextField(40);
-                JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
-                row.add(new JLabel("Đáp án:"));
-
-                if (!answers.isEmpty()) {
-                    txtWritingAnswer.setText(answers.get(0).getContent());
-                }
-
-                row.add(txtWritingAnswer);
-                pnlAnswers.add(row);
-            }
+//            else { //1
+//                txtWritingAnswer = new JTextField(40);
+//                JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+//                row.add(new JLabel("Đáp án:"));
+//
+//                if (!answers.isEmpty()) {
+//                    txtWritingAnswer.setText(answers.get(0).getContent());
+//                }
+//
+//                row.add(txtWritingAnswer);
+//                pnlAnswers.add(row);
+//            }
 
             pnlAnswers.revalidate();
             pnlAnswers.repaint();
@@ -212,7 +254,6 @@ public class QuestionForm extends JFrame {
             cauHoiDAO.create(ch);
             int questionId = ch.getId();
             // 2. Nếu là Multiple Choice → lưu 4 đáp án
-            if ("Multiple Choice".equals(ch.getType())) {
                 for (int i = 0; i < 4; i++) {
                     DapAn da = new DapAn();
                     da.setCauHoiId(questionId);
@@ -220,16 +261,15 @@ public class QuestionForm extends JFrame {
                     da.setCorrect(radOptions[i].isSelected());
                     dapAnDAO.create(da);
                 }
-            }
 
             // 3. Nếu là Writing → lưu 1 đáp án
-            if ("Writing".equals(ch.getType())) {
-                DapAn da = new DapAn();
-                da.setCauHoiId(questionId);
-                da.setContent(txtWritingAnswer.getText());
-                da.setCorrect(true);
-                dapAnDAO.update(da);
-            }
+//            if ("Writing".equals(ch.getType())) {
+//                DapAn da = new DapAn();
+//                da.setCauHoiId(questionId);
+//                da.setContent(txtWritingAnswer.getText());
+//                da.setCorrect(true);
+//                dapAnDAO.update(da);
+//            }
 
             loadData();
             clearForm();
@@ -254,7 +294,6 @@ public class QuestionForm extends JFrame {
             dapAnDAO.deleteByCauHoiId(selectedId);
 
             // Lưu lại đáp án mới
-            if (cmbType.getSelectedItem().equals("Multiple Choice")) {
                 for (int i = 0; i < 4; i++) {
                     String noiDung = txtOptions[i].getText().trim();
                     if (!noiDung.isEmpty()) {
@@ -265,16 +304,16 @@ public class QuestionForm extends JFrame {
                         dapAnDAO.create(da);
                     }
                 }
-            } else {
-                String noiDung = txtWritingAnswer.getText().trim();
-                if (!noiDung.isEmpty()) {
-                    DapAn da = new DapAn();
-                    da.setCauHoiId(selectedId);
-                    da.setContent(noiDung);
-                    da.setCorrect(true); // đáp án viết luôn đúng
-                    dapAnDAO.create(da);
-                }
-            }
+//            else {
+//                String noiDung = txtWritingAnswer.getText().trim();
+//                if (!noiDung.isEmpty()) {
+//                    DapAn da = new DapAn();
+//                    da.setCauHoiId(selectedId);
+//                    da.setContent(noiDung);
+//                    da.setCorrect(true); // đáp án viết luôn đúng
+//                    dapAnDAO.create(da);
+//                }
+//            }
 
             loadData();
             clearForm();
