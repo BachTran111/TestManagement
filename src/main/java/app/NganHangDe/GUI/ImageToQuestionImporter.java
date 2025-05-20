@@ -6,6 +6,8 @@ import app.NganHangDe.Model.CauHoi;
 import app.NganHangDe.Model.DapAn;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
+import app.NganHangDe.Model.ParsedQuestion;
+import app.NganHangDe.Model.ParsedOption;
 
 import javax.swing.*;
 import java.awt.*;
@@ -77,8 +79,13 @@ public class ImageToQuestionImporter extends JDialog {
                         List<ParsedQuestion> questions = parseQuestions(text);
                         publish("Tìm thấy " + questions.size() + " câu hỏi\nĐang lưu vào CSDL...");
 
-                        saveQuestionsToDatabase(questions);
-                        publish("Hoàn thành! Đã lưu " + questions.size() + " câu hỏi");
+                        SwingUtilities.invokeLater(() -> {
+                            new QuestionReviewDialog(
+                                    (Frame) SwingUtilities.getWindowAncestor(ImageToQuestionImporter.this),
+                                    questions
+                            ).setVisible(true);
+                        });
+
                     } catch (Exception ex) {
                         publish("Lỗi: " + ex.getMessage());
                         throw ex;
@@ -147,55 +154,95 @@ public class ImageToQuestionImporter extends JDialog {
 
     private List<ParsedQuestion> parseQuestions(String text) {
         List<ParsedQuestion> questions = new ArrayList<>();
-        logArea.append("Toàn bộ text trích xuất:\n" + text + "\n"); // Debug: Xem toàn bộ text OCR
 
-        // Pattern cải tiến - linh hoạt hơn với nhiều định dạng
-        Pattern pattern = Pattern.compile(
-                "(?mi)^\\s*(\\d+)[.)]\\s*(.+?)(?=\\s*(?:\\d+[.)]|$))" + // Câu hỏi
-                        "((?:\\s*[a-dA-D1-4][.)]\\s*.+?\\s*(?:\\n|$)){2,})" // Các đáp án
-        );
+        // 1) Split toàn bộ OCR text thành từng block, mỗi block bắt đầu bằng '['
+        //    (?=\\[) là lookahead, giữ lại '[' ở đầu mỗi phần.
+        String[] rawBlocks = text.split("(?=\\[)");
 
-        Matcher matcher = pattern.matcher(text);
+        // Regex để tìm từng cặp (circled‑number + phần text theo sau)
+        Pattern optPat = Pattern.compile("([\\u2460-\\u2473])([^\\u2460-\\u2473\\[\\]]+)");
 
-        while (matcher.find()) {
-            ParsedQuestion pq = new ParsedQuestion();
-            pq.setQuestionText(matcher.group(2).trim());
+        for (String raw : rawBlocks) {
+            raw = raw.trim();
+            if (!raw.startsWith("[")) continue;
 
-            // Debug từng phần trích xuất
-            logArea.append("Phát hiện câu hỏi: " + matcher.group(1) + "\n");
-            logArea.append("Nội dung: " + pq.getQuestionText() + "\n");
-
-            // Xử lý các đáp án
-            String optionsText = matcher.group(3);
-            Pattern optionPattern = Pattern.compile(
-                    "(?mi)^\\s*([a-dA-D1-4])[.)]\\s*(.+?)(?:\\s*[✓*✔]\\s*)?$"
-            );
-            Matcher optionMatcher = optionPattern.matcher(optionsText);
-
-            while (optionMatcher.find()) {
-                ParsedOption opt = new ParsedOption();
-                opt.setContent(optionMatcher.group(2).trim());
-                opt.setCorrect(optionMatcher.group(0).matches(".*[✓*✔].*"));
-                pq.getOptions().add(opt);
-
-                // Debug đáp án
-                logArea.append(" - Đáp án " + optionMatcher.group(1) + ": " + opt.getContent() +
-                        (opt.isCorrect() ? " (ĐÚNG)" : "") + "\n");
+            // 2) Lấy tất cả các option
+            Matcher mOpt = optPat.matcher(raw);
+            List<ParsedOption> opts = new ArrayList<>();
+            while (mOpt.find()) {
+                String content = mOpt.group(2).trim();
+                if (!content.isEmpty()) {
+                    ParsedOption o = new ParsedOption();
+                    o.setContent(content);
+                    // TODO: nếu OCR có dấu ✓/* thì setCorrect(true) ở đây
+                    o.setCorrect(false);
+                    opts.add(o);
+                }
+            }
+            if (opts.isEmpty()) {
+                // nếu block này không có option nào thì bỏ qua
+                continue;
             }
 
+            // 3) Lấy questionText bằng cách xóa hết phần “[” và các circled‑number+option
+            String questionText = raw
+                    // xóa các circled-number và text theo sau
+                    .replaceAll("[\\u2460-\\u2473][^\\u2460-\\u2473\\[\\]]+", "")
+                    // xóa dấu '[' đầu
+                    .replaceFirst("^\\[", "")
+                    .trim();
+
+            // 4) Tạo ParsedQuestion và thêm vào list
+            ParsedQuestion pq = new ParsedQuestion();
+            pq.setQuestionText(questionText);
+            pq.setOptions(opts);
             questions.add(pq);
+
+            // Debug log
+            logArea.append("– Câu hỏi: " + questionText + "\n");
+            for (int i = 0; i < opts.size(); i++) {
+                logArea.append("   • Opt " + (i+1) + ": " + opts.get(i).getContent() + "\n");
+            }
         }
 
         if (questions.isEmpty()) {
-            logArea.append("CẢNH BÁO: Không tìm thấy câu hỏi nào phù hợp!\n");
-            logArea.append("Gợi ý kiểm tra:\n");
-            logArea.append("1. Định dạng câu hỏi có số thứ tự (1., 2.,...)\n");
-            logArea.append("2. Đáp án có ký hiệu (a., b.,... hoặc 1., 2.,...)\n");
-            logArea.append("3. Văn bản rõ ràng, không bị nhiễu\n");
+            logArea.append("⚠️ Không tìm thấy câu hỏi nào!\n");
         }
-
         return questions;
     }
+
+
+//    private void saveQuestionsToDatabase(List<ParsedQuestion> questions) throws Exception {
+//        try {
+//            for (ParsedQuestion pq : questions) {
+//                CauHoi ch = new CauHoi();
+//                ch.setContent(pq.getQuestionText());
+//                ch.setType("TRAC_NGHIEM");
+//                cauHoiDAO.create(ch);
+//
+//                boolean hasCorrectAnswer = false;
+//                for (ParsedOption po : pq.getOptions()) {
+//                    DapAn da = new DapAn();
+//                    da.setCauHoiId(ch.getId());
+//                    da.setContent(po.getContent());
+//                    da.setCorrect(po.isCorrect());
+//                    if (po.isCorrect()) hasCorrectAnswer = true;
+//                    dapAnDAO.create(da);
+//                }
+//
+//                if (!hasCorrectAnswer && !pq.getOptions().isEmpty()) {
+//                    // Mặc định chọn option đầu tiên nếu không xác định được đáp án đúng
+//                    DapAn da = new DapAn();
+//                    da.setCauHoiId(ch.getId());
+//                    da.setContent(pq.getOptions().get(0).getContent());
+//                    da.setCorrect(true);
+//                    dapAnDAO.update(da);
+//                }
+//            }
+//        } catch (Exception e) {
+//            throw new Exception("Lỗi khi lưu vào CSDL: " + e.getMessage());
+//        }
+//    }
 
     private void saveQuestionsToDatabase(List<ParsedQuestion> questions) throws Exception {
         try {
@@ -205,23 +252,12 @@ public class ImageToQuestionImporter extends JDialog {
                 ch.setType("TRAC_NGHIEM");
                 cauHoiDAO.create(ch);
 
-                boolean hasCorrectAnswer = false;
                 for (ParsedOption po : pq.getOptions()) {
                     DapAn da = new DapAn();
                     da.setCauHoiId(ch.getId());
                     da.setContent(po.getContent());
                     da.setCorrect(po.isCorrect());
-                    if (po.isCorrect()) hasCorrectAnswer = true;
                     dapAnDAO.create(da);
-                }
-
-                if (!hasCorrectAnswer && !pq.getOptions().isEmpty()) {
-                    // Mặc định chọn option đầu tiên nếu không xác định được đáp án đúng
-                    DapAn da = new DapAn();
-                    da.setCauHoiId(ch.getId());
-                    da.setContent(pq.getOptions().get(0).getContent());
-                    da.setCorrect(true);
-                    dapAnDAO.update(da);
                 }
             }
         } catch (Exception e) {
@@ -230,45 +266,4 @@ public class ImageToQuestionImporter extends JDialog {
     }
 
     // Helper classes
-    private static class ParsedQuestion {
-        private String questionText;
-        private List<ParsedOption> options = new ArrayList<>();
-
-        public String getQuestionText() {
-            return questionText;
-        }
-
-        public void setQuestionText(String questionText) {
-            this.questionText = questionText;
-        }
-
-        public List<ParsedOption> getOptions() {
-            return options;
-        }
-
-        public void setOptions(List<ParsedOption> options) {
-            this.options = options;
-        }
-    }
-
-    private static class ParsedOption {
-        private String content;
-        private boolean isCorrect;
-
-        public String getContent() {
-            return content;
-        }
-
-        public void setContent(String content) {
-            this.content = content;
-        }
-
-        public boolean isCorrect() {
-            return isCorrect;
-        }
-
-        public void setCorrect(boolean correct) {
-            isCorrect = correct;
-        }
-    }
 }

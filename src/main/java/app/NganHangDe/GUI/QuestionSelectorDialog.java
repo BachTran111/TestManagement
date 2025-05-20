@@ -1,8 +1,10 @@
 package app.NganHangDe.GUI;
 
 import app.NganHangDe.DAO.CauHoiDAO;
+import app.NganHangDe.DAO.DapAnDAO;
 import app.NganHangDe.DAO.DeThiChiTietDAO;
 import app.NganHangDe.Model.CauHoi;
+import app.NganHangDe.Model.DapAn;
 import app.NganHangDe.Model.DeThiChiTiet;
 
 import javax.swing.*;
@@ -11,9 +13,6 @@ import java.awt.*;
 import java.sql.SQLException;
 import java.util.List;
 
-/**
- * Dialog trực quan để chọn câu hỏi cho đề thi, hiển thị bảng và chi tiết câu hỏi đáp án
- */
 public class QuestionSelectorDialog extends JDialog {
     private JTable tblAll, tblSelected;
     private DefaultTableModel modelAll, modelSelected;
@@ -21,6 +20,7 @@ public class QuestionSelectorDialog extends JDialog {
     private JPanel pnlAnswers;
     private DeThiChiTietDAO chiTietDAO;
     private CauHoiDAO cauHoiDAO;
+    private DapAnDAO dapAnDAO;
     private int deThiId;
 
     public QuestionSelectorDialog(Frame owner, int deThiId) {
@@ -28,6 +28,7 @@ public class QuestionSelectorDialog extends JDialog {
         this.deThiId = deThiId;
         chiTietDAO = new DeThiChiTietDAO();
         cauHoiDAO = new CauHoiDAO();
+        dapAnDAO = new DapAnDAO();
         initComponents();
         loadData();
         setSize(900, 600);
@@ -114,24 +115,33 @@ public class QuestionSelectorDialog extends JDialog {
     private void showDetail(JTable table) {
         int row = table.getSelectedRow();
         if (row < 0) return;
-        String content = table.getValueAt(row,1).toString();
-        String type = table.getValueAt(row,2).toString();
+
+        int cauHoiId = (Integer) table.getValueAt(row, 0);
+        String content = table.getValueAt(row, 1).toString();
+        String type = table.getValueAt(row, 2).toString();
+
         txtContent.setText(content);
         pnlAnswers.removeAll();
-        if ("Multiple Choice".equals(type)) {
-            for (char opt = 'A'; opt <= 'D'; opt++) {
-                JTextField tf = new JTextField(20);
-                tf.setBorder(BorderFactory.createTitledBorder("Đáp án " + opt));
-                pnlAnswers.add(tf);
-            }
-        } else {
-            JTextField tf = new JTextField(60);
-            tf.setBorder(BorderFactory.createTitledBorder("Đáp án"));
-            pnlAnswers.add(tf);
+
+        try {
+            List<DapAn> dapAns = dapAnDAO.findByCauHoiId(cauHoiId);
+
+                char opt = 'A';
+                for (DapAn da : dapAns) {
+                    JTextField tf = new JTextField(da.getContent(), 20);
+                    tf.setEditable(false);
+                    tf.setBorder(BorderFactory.createTitledBorder("Đáp án " + opt + (da.getCorrect() ? " ✔" : "")));
+                    pnlAnswers.add(tf);
+                    opt++;
+                }
+        } catch (SQLException ex) {
+            pnlAnswers.add(new JLabel("Lỗi tải đáp án: " + ex.getMessage()));
         }
+
         pnlAnswers.revalidate();
         pnlAnswers.repaint();
     }
+
 
     private void onAdd() {
         int row = tblAll.getSelectedRow();
