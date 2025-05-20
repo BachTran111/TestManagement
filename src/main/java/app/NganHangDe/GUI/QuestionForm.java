@@ -21,7 +21,7 @@ public class QuestionForm extends JFrame {
     private JTextArea txtContent;
     private JComboBox<String> cmbType;
     private JTextField txtAmThanhId;
-    private JButton btnNew, btnSave, btnUpdate, btnDelete, btnSuggest;
+    private JButton btnNew, btnSave, btnUpdate, btnDelete, btnSuggest, btnImportFromImage;
     private CauHoiDAO cauHoiDAO;
     private DapAnDAO dapAnDAO;
     private HFService hfService;
@@ -73,6 +73,7 @@ public class QuestionForm extends JFrame {
         btnUpdate = new JButton("Cập nhật");
         btnDelete = new JButton("Xóa");
         btnSuggest = new JButton("Gợi ý AI");
+        btnImportFromImage = new JButton("Nhập từ ảnh");
 
         cmbType.addActionListener(e -> updateAnswerPanel());
 
@@ -96,7 +97,7 @@ public class QuestionForm extends JFrame {
         formPanel.add(pnlAnswers, gbc);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btnPanel.add(btnNew); btnPanel.add(btnSave); btnPanel.add(btnUpdate); btnPanel.add(btnDelete);
+        btnPanel.add(btnNew); btnPanel.add(btnSave); btnPanel.add(btnUpdate); btnPanel.add(btnDelete); btnPanel.add(btnImportFromImage);
 
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(formPanel, BorderLayout.CENTER);
@@ -110,6 +111,9 @@ public class QuestionForm extends JFrame {
         btnSave.addActionListener(e -> saveQuestion());
         btnUpdate.addActionListener(e -> updateQuestion());
         btnDelete.addActionListener(e -> deleteQuestion());
+        btnImportFromImage.addActionListener(e -> {
+            new ImageToQuestionImporter(QuestionForm.this).setVisible(true);
+        });
         btnSuggest.addActionListener(e -> {
             String prompt = txtContent.getText().trim();
             if (prompt.isEmpty()) return;
@@ -250,10 +254,8 @@ Câu hỏi: """ + prompt;
             ch.setType((String)cmbType.getSelectedItem());
             ch.setAmThanhId(txtAmThanhId.getText().isBlank() ? null : Integer.valueOf(txtAmThanhId.getText()));
 
-            // 1. Lưu câu hỏi
             cauHoiDAO.create(ch);
             int questionId = ch.getId();
-            // 2. Nếu là Multiple Choice → lưu 4 đáp án
                 for (int i = 0; i < 4; i++) {
                     DapAn da = new DapAn();
                     da.setCauHoiId(questionId);

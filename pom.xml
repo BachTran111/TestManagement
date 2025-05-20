@@ -63,6 +63,17 @@
             <version>2.13.3</version>
         </dependency>
 
+        <dependency>
+            <groupId>com.asprise.ocr</groupId>
+            <artifactId>java-ocr-api</artifactId>
+            <version>15.3.0.3</version>
+        </dependency>
+
+        <dependency>
+            <groupId>net.sourceforge.tess4j</groupId>
+            <artifactId>tess4j</artifactId>
+            <version>5.3.0</version>
+        </dependency>
 
     </dependencies>
 
@@ -78,5 +89,16 @@
                 </configuration>
             </plugin>
         </plugins>
+
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>**/*.traineddata</include>
+                </includes>
+            </resource>
+        </resources>
+
     </build>
 </project>
