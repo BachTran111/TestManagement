@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit;
 
 public class HFService {
     private static final String API_URL = "https://router.huggingface.co/nebius/v1/chat/completions";
-    private static final String API_KEY = "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";
+    private static final String API_KEY = "";
 
     // Tạo OkHttpClient với timeout lớn hơn (60s connect, 60s write, 120s read)
     private final OkHttpClient client = new OkHttpClient.Builder()
