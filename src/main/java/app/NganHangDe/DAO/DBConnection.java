@@ -24,7 +24,7 @@ public class DBConnection {
 
                 instance = DriverManager.getConnection(url, user, password);
             } catch (Exception e) {
-                throw new SQLException("Error loading database configuration", e);
+                throw new SQLException("Loi db", e);
             }
         }
         return instance;

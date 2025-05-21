@@ -36,7 +36,6 @@ public class ImageToQuestionImporter extends JDialog {
         setLayout(new BorderLayout(10, 10));
         setSize(500, 400);
 
-        // Main panel
         JButton btnSelectImage = new JButton("Chọn ảnh đề thi");
         btnSelectImage.addActionListener(this::handleImageSelection);
 
@@ -189,7 +188,6 @@ public class ImageToQuestionImporter extends JDialog {
                 pq.setOptions(options);
                 questions.add(pq);
 
-                // Debug
                 logArea.append("– Câu hỏi: " + pq.getQuestionText() + "\n");
                 for (int i = 0; i < options.size(); i++) {
                     logArea.append("   • " + (char)('A' + i) + ": " + options.get(i).getContent() + "\n");
@@ -235,27 +233,4 @@ public class ImageToQuestionImporter extends JDialog {
 //            throw new Exception("Lỗi khi lưu vào CSDL: " + e.getMessage());
 //        }
 //    }
-
-    private void saveQuestionsToDatabase(List<ParsedQuestion> questions) throws Exception {
-        try {
-            for (ParsedQuestion pq : questions) {
-                CauHoi ch = new CauHoi();
-                ch.setContent(pq.getQuestionText());
-                ch.setType("TRAC_NGHIEM");
-                cauHoiDAO.create(ch);
-
-                for (ParsedOption po : pq.getOptions()) {
-                    DapAn da = new DapAn();
-                    da.setCauHoiId(ch.getId());
-                    da.setContent(po.getContent());
-                    da.setCorrect(po.isCorrect());
-                    dapAnDAO.create(da);
-                }
-            }
-        } catch (Exception e) {
-            throw new Exception("Lỗi khi lưu vào CSDL: " + e.getMessage());
-        }
-    }
-
-    // Helper classes
 }

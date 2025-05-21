@@ -35,7 +35,6 @@ public class QuestionReviewDialog extends JDialog {
     }
 
     private void initComponents() {
-        // Model và Table
         String[] cols = {"Chọn", "Nội dung câu hỏi", "Đáp án 1", "Đáp án 2", "Đáp án 3", "Đáp án 4"};
         model = new DefaultTableModel(cols, 0) {
             @Override
@@ -47,17 +46,14 @@ public class QuestionReviewDialog extends JDialog {
         tblQuestions = new JTable(model);
         tblQuestions.setRowHeight(30);
 
-        // Panel nút
         btnConfirm = new JButton("Xác nhận lưu");
         JPanel pnlButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         pnlButtons.add(btnConfirm);
 
-        // Layout
         getContentPane().setLayout(new BorderLayout());
         getContentPane().add(new JScrollPane(tblQuestions), BorderLayout.CENTER);
         getContentPane().add(pnlButtons, BorderLayout.SOUTH);
 
-        // Xử lý sự kiện
         btnConfirm.addActionListener(e -> onConfirm());
     }
 

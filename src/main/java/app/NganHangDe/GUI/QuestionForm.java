@@ -4,13 +4,17 @@ import app.NganHangDe.DAO.CauHoiDAO;
 import app.NganHangDe.DAO.DapAnDAO;
 import app.NganHangDe.Model.CauHoi;
 import app.NganHangDe.Model.DapAn;
+import app.NganHangDe.Service.FileService;
 import app.NganHangDe.Service.HFService;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,11 +29,11 @@ public class QuestionForm extends JFrame {
     private CauHoiDAO cauHoiDAO;
     private DapAnDAO dapAnDAO;
     private HFService hfService;
+    private JButton btnUploadAudio;
+    private String audioFilePath;
 
-    //    private AIService aiService;
     private Integer selectedId = null;
 
-    // Answer components
     private JPanel pnlAnswers;
     private JRadioButton[] radOptions;
     private JTextField[] txtOptions;
@@ -51,7 +55,6 @@ public class QuestionForm extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        // Table
         tableModel = new DefaultTableModel(new String[]{"ID", "Content", "Type", "Audio ID"}, 0) {
             public boolean isCellEditable(int row, int column) { return false; }
         };
@@ -63,7 +66,6 @@ public class QuestionForm extends JFrame {
             }
         });
 
-        // Form inputs
         txtContent = new JTextArea(3, 40);
         cmbType = new JComboBox<>(new String[]{"Vocabulary", "Listening", "Reading", "Writing"});
         txtAmThanhId = new JTextField(5);
@@ -75,6 +77,11 @@ public class QuestionForm extends JFrame {
         btnSuggest = new JButton("Gợi ý AI");
         btnImportFromImage = new JButton("Nhập từ ảnh");
 
+        JPanel audioPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        btnUploadAudio = new JButton("Upload Audio");
+        JLabel lblAudio = new JLabel("Chưa có file âm thanh");
+        audioPanel.add(btnUploadAudio);
+        audioPanel.add(lblAudio);
         cmbType.addActionListener(e -> updateAnswerPanel());
 
         JPanel formPanel = new JPanel(new GridBagLayout());
@@ -102,15 +109,33 @@ public class QuestionForm extends JFrame {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(formPanel, BorderLayout.CENTER);
         topPanel.add(btnPanel, BorderLayout.SOUTH);
+        topPanel.add(audioPanel, BorderLayout.NORTH);
 
         add(topPanel, BorderLayout.NORTH);
         add(new JScrollPane(tblCauHoi), BorderLayout.CENTER);
 
-        // Actions
         btnNew.addActionListener(e -> clearForm());
         btnSave.addActionListener(e -> saveQuestion());
         btnUpdate.addActionListener(e -> updateQuestion());
         btnDelete.addActionListener(e -> deleteQuestion());
+        btnUploadAudio.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileFilter(new FileNameExtensionFilter(
+                    "Audio files", "mp3", "wav", "ogg"));
+
+            if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                File selectedFile = fileChooser.getSelectedFile();
+                try {
+                    audioFilePath = new FileService().saveAudioFile(
+                            Files.readAllBytes(selectedFile.toPath()),
+                            selectedFile.getName()
+                    );
+                    lblAudio.setText(selectedFile.getName());
+                } catch (IOException ex) {
+                    JOptionPane.showMessageDialog(this, "Lỗi đọc file: " + ex.getMessage());
+                }
+            }
+        });
         btnImportFromImage.addActionListener(e -> {
             new ImageToQuestionImporter(QuestionForm.this).setVisible(true);
         });
@@ -137,7 +162,7 @@ Câu hỏi: """ + prompt;
 
                     // Chỉ xử lý dòng có định dạng A. hoặc *A.
                     if (line.matches("^\\*?[A-D]\\.\\s.*")) {
-                        // Bỏ dấu * nếu có, và hiển thị nội dung
+                        // Bỏ dấu * nếu có
                         String cleanLine = line.replaceFirst("^\\*", "").trim();
                         txtOptions[filled].setText(cleanLine);
 
@@ -263,16 +288,6 @@ Câu hỏi: """ + prompt;
                     da.setCorrect(radOptions[i].isSelected());
                     dapAnDAO.create(da);
                 }
-
-            // 3. Nếu là Writing → lưu 1 đáp án
-//            if ("Writing".equals(ch.getType())) {
-//                DapAn da = new DapAn();
-//                da.setCauHoiId(questionId);
-//                da.setContent(txtWritingAnswer.getText());
-//                da.setCorrect(true);
-//                dapAnDAO.update(da);
-//            }
-
             loadData();
             clearForm();
         } catch (SQLException ex) {

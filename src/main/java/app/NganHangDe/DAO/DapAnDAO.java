@@ -10,9 +10,6 @@ public class DapAnDAO {
         return DBConnection.getConnection();
     }
 
-    /**
-     * Create a new answer
-     */
     public void create(DapAn dapAn) throws SQLException {
         String sql = "INSERT INTO dap_an (cau_hoi_id, content, is_correct) VALUES (?, ?, ?)";
         try (Connection conn = getConnection();
@@ -29,9 +26,6 @@ public class DapAnDAO {
         }
     }
 
-    /**
-     * Find answer by ID
-     */
     public DapAn findById(int id) throws SQLException {
         String sql = "SELECT * FROM dap_an WHERE id = ?";
         try (Connection conn = getConnection();
@@ -46,9 +40,6 @@ public class DapAnDAO {
         return null;
     }
 
-    /**
-     * Find all answers
-     */
     public List<DapAn> findAll() throws SQLException {
         List<DapAn> list = new ArrayList<>();
         String sql = "SELECT * FROM dap_an";
@@ -62,9 +53,6 @@ public class DapAnDAO {
         return list;
     }
 
-    /**
-     * Update an existing answer
-     */
     public void update(DapAn dapAn) throws SQLException {
         String sql = "UPDATE dap_an SET content = ?, is_correct = ? WHERE id = ?";
         try (Connection conn = getConnection();
@@ -76,9 +64,6 @@ public class DapAnDAO {
         }
     }
 
-    /**
-     * Delete answer by ID
-     */
     public void delete(int id) throws SQLException {
         String sql = "DELETE FROM dap_an WHERE id = ?";
         try (Connection conn = getConnection();
@@ -88,9 +73,6 @@ public class DapAnDAO {
         }
     }
 
-    /**
-     * Find answers by question ID
-     */
     public List<DapAn> findByCauHoiId(int cauHoiId) throws SQLException {
         List<DapAn> list = new ArrayList<>();
         String sql = "SELECT * FROM dap_an WHERE cau_hoi_id = ?";
@@ -106,9 +88,6 @@ public class DapAnDAO {
         return list;
     }
 
-    /**
-     * Delete all answers for a given question
-     */
     public void deleteByCauHoiId(int cauHoiId) throws SQLException {
         String sql = "DELETE FROM dap_an WHERE cau_hoi_id = ?";
         try (Connection conn = getConnection();
@@ -118,9 +97,6 @@ public class DapAnDAO {
         }
     }
 
-    /**
-     * Helper to map ResultSet row to DapAn model
-     */
     private DapAn mapRow(ResultSet rs) throws SQLException {
         DapAn da = new DapAn();
         da.setId(rs.getInt("id"));

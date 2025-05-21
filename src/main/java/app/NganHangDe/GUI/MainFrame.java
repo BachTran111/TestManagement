@@ -12,15 +12,12 @@ public class MainFrame extends JFrame {
     }
 
     private void initComponents() {
-        // Main panel với layout grid
         JPanel mainPanel = new JPanel(new GridLayout(2, 1, 20, 20));
         mainPanel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
 
-        // Nút quản lý câu hỏi
         JButton btnQuestionManager = createStyledButton("QUẢN LÝ CÂU HỎI");
         btnQuestionManager.addActionListener(e -> openQuestionForm());
 
-        // Nút quản lý đề thi
         JButton btnExamManager = createStyledButton("QUẢN LÝ ĐỀ THI");
         btnExamManager.addActionListener(e -> openExamEditor());
 
@@ -57,14 +54,4 @@ public class MainFrame extends JFrame {
         new ExamEditor().setVisible(true);
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            new MainFrame();
-        });
-    }
 }

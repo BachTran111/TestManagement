@@ -10,7 +10,6 @@ import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.*;
 import java.io.File;
 import java.util.List;
 
@@ -32,7 +31,6 @@ public class ExamEditor extends JFrame {
     }
 
     private void initComponents() {
-        // Form inputs
         JPanel formPanel = new JPanel(new GridLayout(4, 2, 5, 5));
         formPanel.setBorder(BorderFactory.createTitledBorder("Thông tin đề thi"));
 
@@ -47,7 +45,6 @@ public class ExamEditor extends JFrame {
         formPanel.add(new JLabel("Ngày tạo (yyyy-MM-dd):"));
         formPanel.add(dateField);
 
-        // Question Add
         JPanel questionPanel = new JPanel(new GridLayout(2, 2, 5, 5));
 //        questionPanel.setBorder(BorderFactory.createTitledBorder("Thêm câu hỏi vào đề thi"));
 //
@@ -58,7 +55,6 @@ public class ExamEditor extends JFrame {
 //        questionPanel.add(new JLabel("Số thứ tự:"));
 //        questionPanel.add(questionNumberField);
 
-        // Buttons
         JPanel buttonPanel = new JPanel();
         JButton newBtn = new JButton("Tạo mới");
         JButton saveBtn = new JButton("Lưu");
@@ -74,13 +70,11 @@ public class ExamEditor extends JFrame {
         buttonPanel.add(addQBtn);
         buttonPanel.add(btnExportDocx);
 
-        // Table
         String[] columns = {"ID", "Tên đề thi", "Mô tả", "Ngày tạo"};
         tableModel = new DefaultTableModel(columns, 0);
         examTable = new JTable(tableModel);
         JScrollPane scrollPane = new JScrollPane(examTable);
 
-        // Layout
         setLayout(new BorderLayout());
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.add(formPanel, BorderLayout.CENTER);
@@ -90,7 +84,6 @@ public class ExamEditor extends JFrame {
         add(buttonPanel, BorderLayout.CENTER);
         add(scrollPane, BorderLayout.SOUTH);
 
-        // Event handlers
         saveBtn.addActionListener(e -> saveExam());
         updateBtn.addActionListener(e -> updateExam());
         deleteBtn.addActionListener(e -> deleteExam());
@@ -213,77 +206,6 @@ public class ExamEditor extends JFrame {
                     clearForm();
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Lỗi khi xóa: " + ex.getMessage());
-                }
-            }
-        }
-    }
-
-    private void addQuestionToExam() {
-        int row = examTable.getSelectedRow();
-        if (row >= 0) {
-            try {
-                int deThiId = (int) tableModel.getValueAt(row, 0);
-                int cauHoiId = Integer.parseInt(questionIdField.getText());
-                int soThuTu = Integer.parseInt(questionNumberField.getText());
-
-                DeThiChiTiet ct = new DeThiChiTiet();
-                ct.setDeThiId(deThiId);
-                ct.setCauHoiId(cauHoiId);
-                ct.setQuestionNumber(soThuTu);
-
-                chiTietDAO.add(ct);
-                JOptionPane.showMessageDialog(this, "Đã thêm câu hỏi vào đề thi.");
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Lỗi khi thêm câu hỏi: " + ex.getMessage());
-            }
-        }
-    }
-
-    private void handleExportDocx() {
-        deThiDAO = new DeThiDAO();
-        DeThi selectedDeThi = null;
-        int row = examTable.getSelectedRow();
-        if (row >= 0) {
-            int deThiId = (int) tableModel.getValueAt(row, 0);
-            try {
-                selectedDeThi = deThiDAO.findById(deThiId);
-            } catch (Exception e) {
-            }
-            if (selectedDeThi == null) {
-                JOptionPane.showMessageDialog(this, "Vui lòng chọn một đề thi trước khi xuất");
-                return;
-            }
-
-            // Hiển thị hộp thoại chọn file
-            JFileChooser fileChooser = new JFileChooser();
-            fileChooser.setDialogTitle("Lưu file DOCX");
-            fileChooser.setFileFilter(new FileNameExtensionFilter("Word Documents", "docx"));
-
-            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
-                File file = fileChooser.getSelectedFile();
-
-                // Đảm bảo có phần mở rộng .docx
-                if (!file.getName().toLowerCase().endsWith(".docx")) {
-                    file = new File(file.getAbsolutePath() + ".docx");
-                }
-
-                try {
-                    // Gọi service export
-                    ExportService exportService = new ExportService();
-                    exportService.exportToDocx(selectedDeThi, file.getAbsolutePath());
-
-                    // Thông báo thành công
-                    JOptionPane.showMessageDialog(this,
-                            "Xuất file thành công!\nĐường dẫn: " + file.getAbsolutePath());
-
-                    // Tự động mở file (tuỳ chọn)
-                    Desktop.getDesktop().open(file);
-
-                } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(this,
-                            "Lỗi khi xuất file: " + ex.getMessage(),
-                            "Lỗi",
-                            JOptionPane.ERROR_MESSAGE);
                 }
             }
         }

@@ -8,7 +8,6 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.*;
 
 import java.io.FileOutputStream;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -88,7 +87,7 @@ public class ExportService {
         // Thêm các đáp án
         char optionChar = 'A';
         List<DapAn> dapAns = null;
-// Lấy danh sách đáp án từ DAO thay vì gọi cauHoi.getDapAns()
+        // Lấy danh sách đáp án từ DAO
         try {
             dapAns = dapAnDAO.findByCauHoiId(cauHoi.getId());
         }catch (Exception e){}

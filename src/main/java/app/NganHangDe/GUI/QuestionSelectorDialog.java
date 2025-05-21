@@ -43,7 +43,6 @@ public class QuestionSelectorDialog extends JDialog {
     }
 
     private void initComponents() {
-        // Models và Tables
         String[] cols = {"ID", "Content", "Type", "Audio ID"};
         modelAll = new DefaultTableModel(cols, 0);
         modelSelected = new DefaultTableModel(cols, 0);
@@ -53,7 +52,6 @@ public class QuestionSelectorDialog extends JDialog {
         tblSelected.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblSelected.setDefaultRenderer(Object.class, new GroupingRenderer());
 
-        // Panel điều khiển giữa
         JButton btnAdd = new JButton("→");
         JButton btnRemove = new JButton("←");
         JPanel pnlButtons = new JPanel(new GridLayout(2,1,5,5));
@@ -87,7 +85,6 @@ public class QuestionSelectorDialog extends JDialog {
         btnGenerateRandom = new JButton("Tạo ngẫu nhiên");
         pnlRandomConfig.add(btnGenerateRandom);
 
-        // Bottom OK/Cancel
         JButton btnOk = new JButton("OK");
         JButton btnCancel = new JButton("Hủy");
         JPanel pnlBottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
@@ -201,7 +198,6 @@ public class QuestionSelectorDialog extends JDialog {
         if (row >= 0) {
             Integer id = (Integer) modelAll.getValueAt(row, 0);
 
-            // Kiểm tra đã tồn tại chưa
             boolean exists = false;
             for (int i = 0; i < modelSelected.getRowCount(); i++) {
                 if (modelSelected.getValueAt(i, 0).equals(id)) {
@@ -273,15 +269,6 @@ public class QuestionSelectorDialog extends JDialog {
         }
     }
 
-    private CauHoi getCauHoiFromRow(int row) {
-        return new CauHoi(
-                (Integer) modelSelected.getValueAt(row, 0),
-                (String) modelSelected.getValueAt(row, 1),
-                (String) modelSelected.getValueAt(row, 2),
-                (Integer) modelSelected.getValueAt(row, 3)
-        );
-    }
-
     private void generateRandomQuestions() {
         try {
             int vocab = (Integer) spnVocabulary.getValue();
@@ -323,7 +310,6 @@ public class QuestionSelectorDialog extends JDialog {
     private void addToSelectedTable(List<CauHoi> questions) {
         for (CauHoi ch : questions) {
             boolean alreadyExists = false;
-            // Kiểm tra trùng lặp
             for (int i = 0; i < modelSelected.getRowCount(); i++) {
                 if ((Integer) modelSelected.getValueAt(i, 0) == ch.getId()) {
                     alreadyExists = true;
@@ -339,7 +325,6 @@ public class QuestionSelectorDialog extends JDialog {
                         ch.getType(),
                         ch.getAmThanhId()
                 });
-
                 // Xóa khỏi bảng all
                 for (int i = 0; i < modelAll.getRowCount(); i++) {
                     if ((Integer) modelAll.getValueAt(i, 0) == ch.getId()) {
