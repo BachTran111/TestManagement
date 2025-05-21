@@ -142,7 +142,7 @@ public class ImageToQuestionImporter extends JDialog {
         tesseract.setLanguage("jpn+eng");
 
         tesseract.setTessVariable("preserve_interword_spaces", "1");
-        tesseract.setTessVariable("user_defined_dpi", "400");
+        tesseract.setTessVariable("user_defined_dpi", "300");
 
         String result = tesseract.doOCR(imageFile);
         jpnFile.delete();
@@ -155,62 +155,54 @@ public class ImageToQuestionImporter extends JDialog {
     private List<ParsedQuestion> parseQuestions(String text) {
         List<ParsedQuestion> questions = new ArrayList<>();
 
-        // 1) Split toàn bộ OCR text thành từng block, mỗi block bắt đầu bằng '['
-        //    (?=\\[) là lookahead, giữ lại '[' ở đầu mỗi phần.
-        String[] rawBlocks = text.split("(?=\\[)");
+        // Tách block theo chỉ số câu hỏi: số + dấu chấm hoặc phẩy, có thể bị OCR sai
+        String[] blocks = text.split("(?m)^\\s*(?:\\d+|[\\u2460-\\u2473])\\s*[,．\\.、]?\\s+");
 
-        // Regex để tìm từng cặp (circled‑number + phần text theo sau)
-        Pattern optPat = Pattern.compile("([\\u2460-\\u2473])([^\\u2460-\\u2473\\[\\]]+)");
+        for (String block : blocks) {
+            block = block.trim();
+            if (block.isEmpty()) continue;
 
-        for (String raw : rawBlocks) {
-            raw = raw.trim();
-            if (!raw.startsWith("[")) continue;
+            String[] lines = block.split("\\n");
+            StringBuilder questionBuilder = new StringBuilder();
+            List<ParsedOption> options = new ArrayList<>();
 
-            // 2) Lấy tất cả các option
-            Matcher mOpt = optPat.matcher(raw);
-            List<ParsedOption> opts = new ArrayList<>();
-            while (mOpt.find()) {
-                String content = mOpt.group(2).trim();
-                if (!content.isEmpty()) {
-                    ParsedOption o = new ParsedOption();
-                    o.setContent(content);
-                    // TODO: nếu OCR có dấu ✓/* thì setCorrect(true) ở đây
-                    o.setCorrect(false);
-                    opts.add(o);
+            for (String line : lines) {
+                line = line.trim();
+
+                if (line.matches("(?i).*A[\\.,\\s]+.*B[\\.,\\s]+.*C[\\.,\\s]+.*D[\\.,\\s]+.*")) {
+                    // Regex mềm hơn để bắt cả: A. xxx | A xxx | A. . xxx
+                    Matcher optMatcher = Pattern.compile("(?i)([A-D])[\\.,\\s]+([^A-D]+)").matcher(line);
+                    while (optMatcher.find()) {
+                        ParsedOption opt = new ParsedOption();
+                        opt.setContent(optMatcher.group(2).trim());
+                        opt.setCorrect(false);
+                        options.add(opt);
+                    }
+                } else {
+                    questionBuilder.append(line).append(" ");
                 }
             }
-            if (opts.isEmpty()) {
-                // nếu block này không có option nào thì bỏ qua
-                continue;
-            }
 
-            // 3) Lấy questionText bằng cách xóa hết phần “[” và các circled‑number+option
-            String questionText = raw
-                    // xóa các circled-number và text theo sau
-                    .replaceAll("[\\u2460-\\u2473][^\\u2460-\\u2473\\[\\]]+", "")
-                    // xóa dấu '[' đầu
-                    .replaceFirst("^\\[", "")
-                    .trim();
+            if (!options.isEmpty()) {
+                ParsedQuestion pq = new ParsedQuestion();
+                pq.setQuestionText(questionBuilder.toString().trim());
+                pq.setOptions(options);
+                questions.add(pq);
 
-            // 4) Tạo ParsedQuestion và thêm vào list
-            ParsedQuestion pq = new ParsedQuestion();
-            pq.setQuestionText(questionText);
-            pq.setOptions(opts);
-            questions.add(pq);
-
-            // Debug log
-            logArea.append("– Câu hỏi: " + questionText + "\n");
-            for (int i = 0; i < opts.size(); i++) {
-                logArea.append("   • Opt " + (i+1) + ": " + opts.get(i).getContent() + "\n");
+                // Debug
+                logArea.append("– Câu hỏi: " + pq.getQuestionText() + "\n");
+                for (int i = 0; i < options.size(); i++) {
+                    logArea.append("   • " + (char)('A' + i) + ": " + options.get(i).getContent() + "\n");
+                }
             }
         }
 
         if (questions.isEmpty()) {
             logArea.append("⚠️ Không tìm thấy câu hỏi nào!\n");
         }
+
         return questions;
     }
-
 
 //    private void saveQuestionsToDatabase(List<ParsedQuestion> questions) throws Exception {
 //        try {

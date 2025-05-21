@@ -4,11 +4,14 @@ import app.NganHangDe.DAO.DeThiDAO;
 import app.NganHangDe.DAO.DeThiChiTietDAO;
 import app.NganHangDe.Model.DeThi;
 import app.NganHangDe.Model.DeThiChiTiet;
+import app.NganHangDe.Service.ExportService;
 
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.File;
 import java.util.List;
 
 public class ExamEditor extends JFrame {
@@ -62,12 +65,14 @@ public class ExamEditor extends JFrame {
         JButton updateBtn = new JButton("Cập nhật");
         JButton deleteBtn = new JButton("Xóa");
         JButton addQBtn = new JButton("Thêm câu hỏi");
+        JButton btnExportDocx = new JButton("Xuất DOCX");
 
         buttonPanel.add(newBtn);
         buttonPanel.add(saveBtn);
         buttonPanel.add(updateBtn);
         buttonPanel.add(deleteBtn);
         buttonPanel.add(addQBtn);
+        buttonPanel.add(btnExportDocx);
 
         // Table
         String[] columns = {"ID", "Tên đề thi", "Mô tả", "Ngày tạo"};
@@ -90,6 +95,37 @@ public class ExamEditor extends JFrame {
         updateBtn.addActionListener(e -> updateExam());
         deleteBtn.addActionListener(e -> deleteExam());
         newBtn.addActionListener(e -> clearForm());
+        btnExportDocx.addActionListener(e -> {
+            deThiDAO = new DeThiDAO();
+            DeThi selectedDeThi = null;
+            int row = examTable.getSelectedRow();
+            if (row >= 0) {
+                int deThiId = (int) tableModel.getValueAt(row, 0);
+                try {
+                    selectedDeThi = deThiDAO.findById(deThiId);
+                } catch (Exception e1) {}
+            }
+            if (selectedDeThi == null) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn 1 đề thi");
+                return;
+            }
+
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setFileFilter(new FileNameExtensionFilter("Word Documents", "docx"));
+
+            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                String filePath = fileChooser.getSelectedFile().getAbsolutePath();
+                if (!filePath.endsWith(".docx")) filePath += ".docx";
+
+                try {
+                    new ExportService().exportToDocx(selectedDeThi, filePath);
+                    JOptionPane.showMessageDialog(this, "Xuất file thành công!");
+                    Desktop.getDesktop().open(new File(filePath));
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, "Lỗi xuất file: " + ex.getMessage());
+                }
+            }
+        });
         addQBtn.addActionListener(e -> {
             int row = examTable.getSelectedRow();
             if (row >= 0) {
@@ -199,6 +235,56 @@ public class ExamEditor extends JFrame {
                 JOptionPane.showMessageDialog(this, "Đã thêm câu hỏi vào đề thi.");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Lỗi khi thêm câu hỏi: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void handleExportDocx() {
+        deThiDAO = new DeThiDAO();
+        DeThi selectedDeThi = null;
+        int row = examTable.getSelectedRow();
+        if (row >= 0) {
+            int deThiId = (int) tableModel.getValueAt(row, 0);
+            try {
+                selectedDeThi = deThiDAO.findById(deThiId);
+            } catch (Exception e) {
+            }
+            if (selectedDeThi == null) {
+                JOptionPane.showMessageDialog(this, "Vui lòng chọn một đề thi trước khi xuất");
+                return;
+            }
+
+            // Hiển thị hộp thoại chọn file
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("Lưu file DOCX");
+            fileChooser.setFileFilter(new FileNameExtensionFilter("Word Documents", "docx"));
+
+            if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+                File file = fileChooser.getSelectedFile();
+
+                // Đảm bảo có phần mở rộng .docx
+                if (!file.getName().toLowerCase().endsWith(".docx")) {
+                    file = new File(file.getAbsolutePath() + ".docx");
+                }
+
+                try {
+                    // Gọi service export
+                    ExportService exportService = new ExportService();
+                    exportService.exportToDocx(selectedDeThi, file.getAbsolutePath());
+
+                    // Thông báo thành công
+                    JOptionPane.showMessageDialog(this,
+                            "Xuất file thành công!\nĐường dẫn: " + file.getAbsolutePath());
+
+                    // Tự động mở file (tuỳ chọn)
+                    Desktop.getDesktop().open(file);
+
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this,
+                            "Lỗi khi xuất file: " + ex.getMessage(),
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
             }
         }
     }

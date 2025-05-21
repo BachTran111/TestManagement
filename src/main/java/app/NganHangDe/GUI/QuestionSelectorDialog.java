@@ -11,7 +11,9 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.SQLException;
+import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class QuestionSelectorDialog extends JDialog {
     private JTable tblAll, tblSelected;
@@ -22,6 +24,11 @@ public class QuestionSelectorDialog extends JDialog {
     private CauHoiDAO cauHoiDAO;
     private DapAnDAO dapAnDAO;
     private int deThiId;
+
+    private JPanel pnlRandomConfig;
+    private JSpinner spnVocabulary, spnReading, spnListening;
+    private JButton btnGenerateRandom;
+
 
     public QuestionSelectorDialog(Frame owner, int deThiId) {
         super(owner, "Chọn câu hỏi cho đề " + deThiId, true);
@@ -44,6 +51,7 @@ public class QuestionSelectorDialog extends JDialog {
         tblSelected = new JTable(modelSelected);
         tblAll.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         tblSelected.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        tblSelected.setDefaultRenderer(Object.class, new GroupingRenderer());
 
         // Panel điều khiển giữa
         JButton btnAdd = new JButton("→");
@@ -60,6 +68,24 @@ public class QuestionSelectorDialog extends JDialog {
         pnlDetail.add(new JScrollPane(txtContent), BorderLayout.NORTH);
         pnlAnswers = new JPanel(new FlowLayout(FlowLayout.LEFT));
         pnlDetail.add(pnlAnswers, BorderLayout.CENTER);
+
+        pnlRandomConfig = new JPanel(new GridLayout(4, 2));
+        pnlRandomConfig.setBorder(BorderFactory.createTitledBorder("Tạo ngẫu nhiên"));
+
+        pnlRandomConfig.add(new JLabel("Từ vựng:"));
+        spnVocabulary = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1));
+        pnlRandomConfig.add(spnVocabulary);
+
+        pnlRandomConfig.add(new JLabel("Đọc hiểu:"));
+        spnReading = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1));
+        pnlRandomConfig.add(spnReading);
+
+        pnlRandomConfig.add(new JLabel("Nghe:"));
+        spnListening = new JSpinner(new SpinnerNumberModel(0, 0, 100, 1));
+        pnlRandomConfig.add(spnListening);
+
+        btnGenerateRandom = new JButton("Tạo ngẫu nhiên");
+        pnlRandomConfig.add(btnGenerateRandom);
 
         // Bottom OK/Cancel
         JButton btnOk = new JButton("OK");
@@ -82,6 +108,13 @@ public class QuestionSelectorDialog extends JDialog {
         getContentPane().add(center, BorderLayout.CENTER);
         getContentPane().add(pnlBottom, BorderLayout.SOUTH);
 
+        JPanel leftPanel = new JPanel(new BorderLayout());
+        leftPanel.add(new JScrollPane(tblAll), BorderLayout.CENTER);
+        leftPanel.add(pnlRandomConfig, BorderLayout.SOUTH);
+
+        // Cập nhật JSplitPane
+        splitTables.setLeftComponent(leftPanel);
+
         // Event handlers
         btnAdd.addActionListener(e -> onAdd());
         btnRemove.addActionListener(e -> onRemove());
@@ -90,23 +123,43 @@ public class QuestionSelectorDialog extends JDialog {
 
         tblAll.getSelectionModel().addListSelectionListener(e -> showDetail(tblAll));
         tblSelected.getSelectionModel().addListSelectionListener(e -> showDetail(tblSelected));
+        btnGenerateRandom.addActionListener(e -> generateRandomQuestions());
+
     }
 
     private void loadData() {
         try {
+            modelAll.setRowCount(0);
+            modelSelected.setRowCount(0);
+
             List<CauHoi> all = cauHoiDAO.findAll();
             List<CauHoi> sel = cauHoiDAO.findByDeThi(deThiId);
-            for (CauHoi ch: all) modelAll.addRow(new Object[]{ch.getId(), ch.getContent(), ch.getType(), ch.getAmThanhId()});
-            for (CauHoi ch: sel) {
-                modelSelected.addRow(new Object[]{ch.getId(), ch.getContent(), ch.getType(), ch.getAmThanhId()});
-                // xóa khỏi all nếu đã chọn
-                for (int i = 0; i < modelAll.getRowCount(); i++) {
-                    if ((Integer)modelAll.getValueAt(i,0) == ch.getId()) {
-                        modelAll.removeRow(i);
-                        break;
-                    }
+
+            // Thêm logic lọc các câu đã chọn
+            Set<Integer> selectedIds = sel.stream()
+                    .map(CauHoi::getId)
+                    .collect(Collectors.toSet());
+
+            for (CauHoi ch : all) {
+                if (!selectedIds.contains(ch.getId())) {
+                    modelAll.addRow(new Object[]{
+                            ch.getId(),
+                            ch.getContent(),
+                            ch.getType(),
+                            ch.getAmThanhId()
+                    });
                 }
             }
+
+            for (CauHoi ch : sel) {
+                modelSelected.addRow(new Object[]{
+                        ch.getId(),
+                        ch.getContent(),
+                        ch.getType(),
+                        ch.getAmThanhId()
+                });
+            }
+
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Lỗi tải dữ liệu: " + ex.getMessage());
         }
@@ -146,10 +199,25 @@ public class QuestionSelectorDialog extends JDialog {
     private void onAdd() {
         int row = tblAll.getSelectedRow();
         if (row >= 0) {
-            Object[] vals = new Object[4];
-            for (int i=0;i<4;i++) vals[i] = modelAll.getValueAt(row,i);
-            modelSelected.addRow(vals);
-            modelAll.removeRow(row);
+            Integer id = (Integer) modelAll.getValueAt(row, 0);
+
+            // Kiểm tra đã tồn tại chưa
+            boolean exists = false;
+            for (int i = 0; i < modelSelected.getRowCount(); i++) {
+                if (modelSelected.getValueAt(i, 0).equals(id)) {
+                    exists = true;
+                    break;
+                }
+            }
+
+            if (!exists) {
+                Object[] vals = new Object[4];
+                for (int i = 0; i < 4; i++) {
+                    vals[i] = modelAll.getValueAt(row, i);
+                }
+                modelSelected.addRow(vals);
+                modelAll.removeRow(row);
+            }
         }
     }
 
@@ -165,18 +233,122 @@ public class QuestionSelectorDialog extends JDialog {
 
     private void onOk() {
         try {
-            chiTietDAO.deleteByDeThiId(deThiId);
-            for (int i=0;i<modelSelected.getRowCount();i++) {
-                DeThiChiTiet ct = new DeThiChiTiet();
-                ct.setDeThiId(deThiId);
-                ct.setCauHoiId((Integer)modelSelected.getValueAt(i,0));
-                ct.setQuestionNumber(i+1);
-                chiTietDAO.add(ct);
+            // Lấy danh sách ID câu hỏi đã chọn hiện tại
+            Set<Integer> selectedIds = new HashSet<>();
+            for (int i = 0; i < modelSelected.getRowCount(); i++) {
+                selectedIds.add((Integer) modelSelected.getValueAt(i, 0));
             }
+
+            // Lấy danh sách câu hỏi đã có trong đề thi từ CSDL
+            List<DeThiChiTiet> existingDetails = chiTietDAO.findByDeThiId(deThiId);
+            Set<Integer> existingIds = existingDetails.stream()
+                    .map(DeThiChiTiet::getCauHoiId)
+                    .collect(Collectors.toSet());
+
+            // Xóa những câu hỏi không còn được chọn
+            for (DeThiChiTiet detail : existingDetails) {
+                if (!selectedIds.contains(detail.getCauHoiId())) {
+                    chiTietDAO.delete(detail.getId());
+                }
+            }
+
+            // Thêm những câu hỏi mới được chọn
+            int order = 1;
+            for (int i = 0; i < modelSelected.getRowCount(); i++) {
+                Integer cauHoiId = (Integer) modelSelected.getValueAt(i, 0);
+
+                if (!existingIds.contains(cauHoiId)) {
+                    DeThiChiTiet ct = new DeThiChiTiet();
+                    ct.setDeThiId(deThiId);
+                    ct.setCauHoiId(cauHoiId);
+                    ct.setQuestionNumber(order++);
+                    chiTietDAO.add(ct);
+                }
+            }
+
             JOptionPane.showMessageDialog(this, "Cập nhật thành công.");
             dispose();
         } catch (SQLException ex) {
             JOptionPane.showMessageDialog(this, "Lỗi lưu dữ liệu: " + ex.getMessage());
         }
     }
+
+    private CauHoi getCauHoiFromRow(int row) {
+        return new CauHoi(
+                (Integer) modelSelected.getValueAt(row, 0),
+                (String) modelSelected.getValueAt(row, 1),
+                (String) modelSelected.getValueAt(row, 2),
+                (Integer) modelSelected.getValueAt(row, 3)
+        );
+    }
+
+    private void generateRandomQuestions() {
+        try {
+            int vocab = (Integer) spnVocabulary.getValue();
+            int reading = (Integer) spnReading.getValue();
+            int listening = (Integer) spnListening.getValue();
+
+            // Khởi tạo danh sách theo thứ tự ưu tiên
+            List<CauHoi> randomQuestions = new ArrayList<>();
+
+            // Xử lý từng loại theo thứ tự Vocabulary -> Reading -> Listening
+            processQuestionType(randomQuestions, "VOCABULARY", vocab);
+            processQuestionType(randomQuestions, "READING", reading);
+            processQuestionType(randomQuestions, "LISTENING", listening);
+
+            // Thêm vào bảng selected
+            addToSelectedTable(randomQuestions);
+
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Lỗi CSDL: " + ex.getMessage());
+        }
+    }
+
+    private void processQuestionType(List<CauHoi> resultList, String type, int count) throws SQLException {
+        if (count > 0) {
+            List<CauHoi> questions = cauHoiDAO.findRandomByType(type, count);
+            if (questions.size() < count) {
+                JOptionPane.showMessageDialog(this,
+                        "Không đủ câu " + type.toLowerCase() + " trong ngân hàng\n" +
+                                "Yêu cầu: " + count + ", Tìm thấy: " + questions.size());
+                return;
+            }
+
+            // Xáo trộn trong loại
+            Collections.shuffle(questions);
+            resultList.addAll(questions);
+        }
+    }
+
+    private void addToSelectedTable(List<CauHoi> questions) {
+        for (CauHoi ch : questions) {
+            boolean alreadyExists = false;
+            // Kiểm tra trùng lặp
+            for (int i = 0; i < modelSelected.getRowCount(); i++) {
+                if ((Integer) modelSelected.getValueAt(i, 0) == ch.getId()) {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+
+            if (!alreadyExists) {
+                // Thêm vào cuối bảng selected
+                modelSelected.addRow(new Object[]{
+                        ch.getId(),
+                        ch.getContent(),
+                        ch.getType(),
+                        ch.getAmThanhId()
+                });
+
+                // Xóa khỏi bảng all
+                for (int i = 0; i < modelAll.getRowCount(); i++) {
+                    if ((Integer) modelAll.getValueAt(i, 0) == ch.getId()) {
+                        modelAll.removeRow(i);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
 }

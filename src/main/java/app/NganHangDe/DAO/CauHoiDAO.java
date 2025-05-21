@@ -133,6 +133,25 @@ public class CauHoiDAO {
         return cauHois;
     }
 
+    public List<CauHoi> findRandomByType(String type, int limit) throws SQLException {
+        List<CauHoi> questions = new ArrayList<>();
+        String sql = "SELECT * FROM cau_hoi WHERE type = ? ORDER BY RAND() LIMIT ?";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, type);
+            stmt.setInt(2, limit);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    questions.add(mapResultSetToCauHoi(rs));
+                }
+            }
+        }
+        return questions;
+    }
+
     // 3. Helper method
     private CauHoi mapResultSetToCauHoi(ResultSet rs) throws SQLException {
         CauHoi cauHoi = new CauHoi();

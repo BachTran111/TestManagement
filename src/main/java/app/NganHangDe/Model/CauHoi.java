@@ -10,6 +10,15 @@ public class CauHoi {
     private List<DapAn> dapAns;
     private AmThanh amThanh;
 
+    public CauHoi(){}
+
+    public CauHoi(Integer id, String content, String type, Integer amThanhId) {
+        this.id = id;
+        this.content = content;
+        this.type = type;
+        this.amThanhId = amThanhId;
+    }
+
     public Integer getId() {
         return id;
     }

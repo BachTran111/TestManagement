@@ -97,7 +97,7 @@ public class QuestionReviewDialog extends JDialog {
             for (ParsedQuestion pq : questions) {
                 CauHoi ch = new CauHoi();
                 ch.setContent(pq.getQuestionText());
-                ch.setType("TRAC_NGHIEM");
+                ch.setType("Vocabulary");
                 cauHoiDAO.create(ch);
 
                 for (ParsedOption po : pq.getOptions()) {
